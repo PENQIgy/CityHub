@@ -1,0 +1,51 @@
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+### 前端相关 ###
+node_modules/
+dist/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+### 环境变量与敏感信息 ###
+.env
+.env.local
+.env.*.local
+
+### 日志文件 ###
+*.log
+
+### 系统文件 ###
+.DS_Store
+Thumbs.db

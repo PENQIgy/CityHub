@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cityhub.mapper.VoucherOrderMapper">
+
+    <sql id="orderColumns">
+        o.`id`, o.`user_id`, o.`voucher_id`, o.`pay_type`, o.`status`,
+        o.`create_time`, o.`pay_time`, o.`use_time`, o.`refund_time`,
+        v.`title`, v.`sub_title`, v.`rules`, v.`pay_value`, v.`actual_value`,
+        v.`type` AS voucher_type,
+        s.`id` AS shop_id, s.`name` AS shop_name, s.`images` AS shop_image, s.`address` AS shop_address
+    </sql>
+
+    <select id="queryOrderPage" resultType="com.cityhub.dto.VoucherOrderVO">
+        SELECT
+        <include refid="orderColumns"/>
+        FROM tb_voucher_order o
+        LEFT JOIN tb_voucher v ON v.id = o.voucher_id
+        LEFT JOIN tb_shop s ON s.id = v.shop_id
+        WHERE o.user_id = #{userId}
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        ORDER BY o.create_time DESC, o.id DESC
+    </select>
+
+    <select id="queryOrderDetail" resultType="com.cityhub.dto.VoucherOrderVO">
+        SELECT
+        <include refid="orderColumns"/>
+        FROM tb_voucher_order o
+        LEFT JOIN tb_voucher v ON v.id = o.voucher_id
+        LEFT JOIN tb_shop s ON s.id = v.shop_id
+        WHERE o.id = #{id}
+    </select>
+
+</mapper>
