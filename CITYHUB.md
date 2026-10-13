@@ -221,9 +221,15 @@ Start-Process "$nginx\nginx.exe" -WorkingDirectory $nginx
 ### 交易侧
 
 - 商户详情 / 分类列表（支持按经纬度 GEO 排序并返回距离）/ 名称与关键字搜索
-- 商户代金券列表（区分秒杀券与普通券，含库存与生效时间）
-- 秒杀下单：Lua 脚本在 Redis 内原子完成「库存判断 + 一人一单 + 扣减」，
+- 优惠券创建：`POST /voucher` 普通券、`POST /voucher/seckill` 秒杀券（名称、支付金额、抵扣金额、
+  使用规则、库存、使用时间窗），创建时做参数校验并把秒杀库存预热到 Redis
+- 商户代金券列表（区分秒杀券与普通券，含库存、生效时间与「当前用户是否已购买」标记）
+- 秒杀下单：Lua 脚本在 Redis 内原子完成「使用时间窗 + 库存判断 + 一人一单 + 扣减」，
   再经阻塞队列异步落库，落库时用 Redisson 分布式锁 + 唯一性校验兜底
+- 普通券下单：`POST /voucher-order/buy/{id}` 同步事务落库，下单后立即可支付
+- **一人一单**：同一用户对同一张券只能有一张有效订单，由三层保证
+  （Redis 预校验 → 应用层有效订单校验 → `tb_voucher_order` 唯一索引 `uk_order_user_voucher(user_id, voucher_id)`）；
+  已取消的订单可以重新下单，复用原订单行，不占用新名额
 - 订单闭环：订单列表（按状态筛选）→ 模拟支付 → 核销 / 取消（取消回补库存与 Redis 标记）
 
 ### 用户体系
@@ -258,6 +264,10 @@ Start-Process "$nginx\nginx.exe" -WorkingDirectory $nginx
 | 14 | `SystemConstants.IMAGE_UPLOAD_DIR` | 硬编码 nginx 路径 | 改为 `cityhub.image-upload-dir` 配置项 |
 | 15 | 前端各页 | `images.split(',')` 后未做地址归一化 | 相对路径图片 404 |
 | 16 | `WebExceptionAdvice` | 只处理 `RuntimeException`，参数类型错误返回「服务器异常」 | 排查困难，改为分类处理 |
+| 17 | `seckill.lua` + `VoucherOrderServiceImpl` | 脚本返回码（1 重复下单 / 2 库存不足）与 Java `switch` 分支写反了 | 「重复下单」被提示成「库存不足」，一人一单的提示完全对不上 |
+| 18 | `seckill.lua` | 只校验库存，完全不校验 `begin_time / end_time` | 未开抢 / 已结束的券仍可下单，前端的时间判断可被绕过 |
+| 19 | `tb_voucher_order` | 没有 `(user_id, voucher_id)` 唯一约束，`createVoucherOrder` 的重复校验在异步链路里失效 | 实测同一用户对同一张券落下 22660 条重复订单（演示库已清理并加唯一索引兜底） |
+| 20 | `VoucherController` / `VoucherServiceImpl` | `POST /voucher` 直接 `save()`，不校验金额与时间，秒杀券创建后不预热库存 | 脏数据入库；新建秒杀券时 Redis 无库存 key，下单直接提示「暂未开抢」 |
 
 ---
 

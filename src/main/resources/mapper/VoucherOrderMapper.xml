@@ -32,4 +32,40 @@
         WHERE o.id = #{id}
     </select>
 
+    <!-- 一人一单：只统计「有效」订单，已取消（4）的订单不占用名额 -->
+    <select id="findActiveOrder" resultType="com.cityhub.entity.VoucherOrder">
+        SELECT `id`, `user_id`, `voucher_id`, `pay_type`, `status`,
+               `create_time`, `pay_time`, `use_time`, `refund_time`, `update_time`
+        FROM tb_voucher_order
+        WHERE `user_id` = #{userId}
+          AND `voucher_id` = #{voucherId}
+          AND `status` &lt;&gt; 4
+        ORDER BY `id` DESC
+        LIMIT 1
+    </select>
+
+    <!-- 查询该用户在该券上「已取消」的订单（取消后重新下单时复用这一行） -->
+    <select id="selectCanceledOrder" resultType="com.cityhub.entity.VoucherOrder">
+        SELECT `id`, `user_id`, `voucher_id`, `pay_type`, `status`,
+               `create_time`, `pay_time`, `use_time`, `refund_time`, `update_time`
+        FROM tb_voucher_order
+        WHERE `user_id` = #{userId}
+          AND `voucher_id` = #{voucherId}
+          AND `status` = 4
+        ORDER BY `id` DESC
+        LIMIT 1
+    </select>
+
+    <!-- 重新下单：把已取消的订单改回未支付，并清掉旧的支付 / 核销痕迹 -->
+    <update id="reactivateOrder">
+        UPDATE tb_voucher_order
+        SET `status` = 1,
+            `pay_time` = NULL,
+            `use_time` = NULL,
+            `refund_time` = NULL,
+            `create_time` = NOW()
+        WHERE `id` = #{id}
+          AND `status` = 4
+    </update>
+
 </mapper>

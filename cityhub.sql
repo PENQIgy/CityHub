@@ -166,8 +166,8 @@ CREATE TABLE `tb_seckill_voucher` (
   `voucher_id` bigint unsigned NOT NULL COMMENT '关联的优惠券的id',
   `stock` int NOT NULL COMMENT '库存',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `begin_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '生效时间',
-  `end_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '失效时间',
+  `begin_time` timestamp NULL DEFAULT NULL COMMENT '生效时间',
+  `end_time` timestamp NULL DEFAULT NULL COMMENT '失效时间',
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`voucher_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=COMPACT COMMENT='秒杀优惠券表，与优惠券是一对一关系';
@@ -179,7 +179,7 @@ CREATE TABLE `tb_seckill_voucher` (
 
 LOCK TABLES `tb_seckill_voucher` WRITE;
 /*!40000 ALTER TABLE `tb_seckill_voucher` DISABLE KEYS */;
-INSERT INTO `tb_seckill_voucher` VALUES (2,100,'2026-09-15 12:22:38','2026-08-31 16:00:00','2026-12-31 15:59:59','2026-09-15 12:22:38'),(10,98,'2026-09-15 12:27:18','2026-08-31 16:00:00','2026-12-31 15:59:59','2026-09-29 07:44:22'),(11,100,'2026-09-17 09:24:00','2022-01-26 02:09:17','2022-03-26 15:09:04','2026-09-17 09:24:00'),(12,100,'2026-09-17 09:25:06','2022-01-26 02:09:17','2022-03-26 15:09:04','2026-09-17 09:25:06');
+INSERT INTO `tb_seckill_voucher` VALUES (2,100,'2026-09-15 12:22:38','2026-08-31 16:00:00','2026-12-31 15:59:59','2026-09-15 12:22:38'),(10,98,'2026-09-15 12:27:18','2026-08-31 16:00:00','2026-12-31 15:59:59','2026-09-29 07:44:22'),(11,100,'2026-09-17 09:24:00','2026-09-01 00:00:00','2026-12-31 23:59:59','2026-09-17 09:24:00'),(12,100,'2026-09-17 09:25:06','2026-09-01 00:00:00','2026-12-31 23:59:59','2026-09-17 09:25:06');
 /*!40000 ALTER TABLE `tb_seckill_voucher` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -430,7 +430,8 @@ CREATE TABLE `tb_voucher_order` (
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_order_user` (`user_id`,`status`,`create_time`),
-  KEY `idx_order_voucher` (`voucher_id`)
+  KEY `idx_order_voucher` (`voucher_id`),
+  UNIQUE KEY `uk_order_user_voucher` (`user_id`,`voucher_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=COMPACT;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

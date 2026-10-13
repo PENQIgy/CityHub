@@ -1,6 +1,7 @@
 package com.cityhub.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -77,5 +78,11 @@ public class VoucherOrder implements Serializable {
      */
     private LocalDateTime updateTime;
 
+    /**
+     * 是否来自秒杀通道（秒杀在 Lua 脚本里已经扣过库存，落库时不能再扣一次）。
+     * 非数据库字段，仅用于在同一套 createVoucherOrder 逻辑里区分两条下单链路。
+     */
+    @TableField(exist = false)
+    private Boolean fromSeckill;
 
 }

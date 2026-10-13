@@ -14,7 +14,12 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IVoucherService extends IService<Voucher> {
 
+    /** 商户在售优惠券列表（带「当前用户是否已购买」标记） */
     Result queryVoucherOfShop(Long shopId);
 
-    void addSeckillVoucher(Voucher voucher);
+    /** 新增普通代金券（不限量，随时可买） */
+    Result addVoucher(Voucher voucher);
+
+    /** 新增秒杀代金券（带库存与抢购时间窗，并把库存预热到 Redis） */
+    Result addSeckillVoucher(Voucher voucher);
 }

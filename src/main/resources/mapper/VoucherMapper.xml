@@ -2,12 +2,52 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cityhub.mapper.VoucherMapper">
 
-    <select id="queryVoucherOfShop" resultType="com.cityhub.entity.Voucher" parameterType="java.lang.Long">
+    <!--
+      在售代金券列表。
+      秒杀券：库存/生效时间来自 tb_seckill_voucher；
+      普通券：库存统一按 -1（不限量）处理，不限时随时可买；tb_seckill_voucher 里只是为了
+              存 stock = -1，其 begin_time / end_time 没有业务含义，前端也不展示。
+      bought：当前用户在 tb_voucher_order 里的下单数量（> 0 即「已购买」，一人一单）。
+    -->
+    <select id="queryVoucherOfShop" resultType="com.cityhub.entity.Voucher">
         SELECT
             v.`id`, v.`shop_id`, v.`title`, v.`sub_title`, v.`rules`, v.`pay_value`,
-            v.`actual_value`, v.`type`, sv.`stock` , sv.begin_time , sv.end_time
+            v.`actual_value`, v.`type`, v.`status`, v.`create_time`,
+            sv.`stock`, sv.`begin_time`, sv.`end_time`,
+            (SELECT COUNT(*) FROM tb_voucher_order o
+              WHERE o.voucher_id = v.id AND o.user_id = #{userId}) AS bought
         FROM tb_voucher v
-        LEFT JOIN  tb_seckill_voucher sv ON v.id = sv.voucher_id
+        LEFT JOIN tb_seckill_voucher sv ON v.id = sv.voucher_id
         WHERE v.shop_id = #{shopId} AND v.status = 1
+        ORDER BY v.type DESC, v.id ASC
     </select>
+
+    <!-- 扣减库存：stock > 0 且当前时间在 begin_time ~ end_time 之间才生效 -->
+    <update id="deductStock">
+        UPDATE tb_seckill_voucher
+        SET stock = stock - 1
+        WHERE voucher_id = #{voucherId}
+          AND stock &gt; 0
+          AND (begin_time IS NULL OR begin_time &lt;= NOW())
+          AND (end_time IS NULL OR end_time &gt;= NOW())
+    </update>
+
+    <!-- 回补库存：取消订单时 +1。
+         只对「限量券」（stock > 0）生效；普通券的不限量标记是 0，
+         加 1 会把它变成 1 从而被误判成限量券，所以这里必须带上 stock > 0 的条件。 -->
+    <update id="restoreStock">
+        UPDATE tb_seckill_voucher
+        SET stock = stock + 1
+        WHERE voucher_id = #{voucherId}
+          AND stock &gt; 0
+    </update>
+
+    <!-- 显式写时间窗：普通券的 end_time 必须能写成 NULL，
+         不能走 MyBatis-Plus「忽略 null 字段」的默认行为，否则会落成 DEFAULT CURRENT_TIMESTAMP -->
+    <update id="updateTimeWindow">
+        UPDATE tb_seckill_voucher
+        SET begin_time = #{beginTime},
+            end_time   = #{endTime}
+        WHERE voucher_id = #{voucherId}
+    </update>
 </mapper>

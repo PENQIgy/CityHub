@@ -33,6 +33,12 @@ public class VoucherOrderController {
         return voucherOrderService.seckillVoucher(voucherId);
     }
 
+    /** 普通券下单（同步落库，一人一单） */
+    @PostMapping("/buy/{id}")
+    public Result buyVoucher(@PathVariable("id") Long voucherId) {
+        return voucherOrderService.buyVoucher(voucherId);
+    }
+
     /** 我的订单列表 */
     @GetMapping("/list")
     public Result queryMyOrders(@RequestParam(value = "current", defaultValue = "1") Integer current,

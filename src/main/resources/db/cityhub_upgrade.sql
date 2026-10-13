@@ -99,6 +99,29 @@ BEGIN
     -- =================================================================
     -- 4. 关注 / 交易 索引补齐
     -- =================================================================
+    -- 秒杀券表的时间列允许 NULL：普通券（type = 0）不限时，用 NULL 表示「不限结束时间」。
+    -- 老库里这两列是 NOT NULL DEFAULT CURRENT_TIMESTAMP，新建普通券时会被填成
+    -- begin_time == end_time 的「零宽时间窗」，导致券一下单就被判成「已结束」。
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = db AND table_name = 'tb_seckill_voucher' AND column_name = 'end_time' AND is_nullable = 'NO') THEN
+        ALTER TABLE `tb_seckill_voucher`
+            MODIFY COLUMN `begin_time` TIMESTAMP NULL DEFAULT NULL COMMENT '生效时间，秒杀券必填',
+            MODIFY COLUMN `end_time`   TIMESTAMP NULL DEFAULT NULL COMMENT '失效时间，秒杀券必填；NULL = 不限时（普通券）';
+    END IF;
+
+    -- 把普通券（type = 0）身上遗留的时间窗清掉，它们没有业务含义
+    UPDATE `tb_seckill_voucher` sv
+    JOIN `tb_voucher` v ON v.`id` = sv.`voucher_id`
+    SET sv.`begin_time` = NULL, sv.`end_time` = NULL
+    WHERE v.`type` = 0 AND (sv.`begin_time` IS NOT NULL OR sv.`end_time` IS NOT NULL);
+
+    -- 普通券的「不限量」库存标记统一成 0。
+    -- 不能是 -1：取消订单会执行 stock = stock + 1，-1 会被加回 0，而 0 是「限量且售罄」的取值，
+    -- 会让不限量券被误判成售罄，取消后重新下单直接报「库存不足」。
+    UPDATE `tb_seckill_voucher` sv
+    JOIN `tb_voucher` v ON v.`id` = sv.`voucher_id`
+    SET sv.`stock` = 0
+    WHERE v.`type` = 0 AND (sv.`stock` IS NULL OR sv.`stock` <> 0);
+
     IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = db AND table_name = 'tb_follow' AND index_name = 'uk_follow_user_target') THEN
         ALTER TABLE `tb_follow` ADD UNIQUE KEY `uk_follow_user_target` (`user_id`, `follow_user_id`);
     END IF;
@@ -107,6 +130,26 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = db AND table_name = 'tb_voucher_order' AND index_name = 'idx_order_voucher') THEN
         ALTER TABLE `tb_voucher_order` ADD INDEX `idx_order_voucher` (`voucher_id`);
+    END IF;
+
+    -- 清理历史重复订单：一人一单之前，同一用户对同一张券可能落下多条订单，
+    -- 先按 (user_id, voucher_id) 分组只保留一条，否则下面的唯一索引无法创建。
+    -- 保留规则：status 最小（1 未支付 < 2 已支付 < 3 已核销 < 4 已取消），status 相同时取 id 最小。
+    -- 用派生表先算出每组要保留的 id，避免 tb_voucher_order 自连接在大表上退化成 O(n^2)。
+    DELETE FROM `tb_voucher_order`
+    WHERE `id` NOT IN (
+        SELECT `keep_id` FROM (
+            SELECT SUBSTRING_INDEX(
+                       GROUP_CONCAT(`id` ORDER BY `status` ASC, `id` ASC), ',', 1) AS `keep_id`
+            FROM `tb_voucher_order`
+            GROUP BY `user_id`, `voucher_id`
+        ) k
+    );
+
+    -- 唯一索引是一人一单的最后一道防线：应用层已经做了拦截，这里再加一层数据库约束，
+    -- 保证并发/异常情况下同一个用户在同一张券上也不会产生第二条订单。
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = db AND table_name = 'tb_voucher_order' AND index_name = 'uk_order_user_voucher') THEN
+        ALTER TABLE `tb_voucher_order` ADD UNIQUE KEY `uk_order_user_voucher` (`user_id`, `voucher_id`);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = db AND table_name = 'tb_shop' AND index_name = 'idx_shop_name') THEN
         ALTER TABLE `tb_shop` ADD INDEX `idx_shop_name` (`name`);
@@ -162,7 +205,16 @@ INSERT INTO `tb_topic` (`name`, `description`, `cover`, `sort`) VALUES
 ON DUPLICATE KEY UPDATE `description` = VALUES(`description`), `sort` = VALUES(`sort`);
 
 -- ---------------------------------------------------------------------
--- 8. 历史数据回填
+-- 8. 一人一单说明
+-- ---------------------------------------------------------------------
+-- `tb_voucher_order` 上 (user_id, voucher_id) 唯一（见 uk_order_user_voucher），
+-- 即「一个用户对同一张代金券最多一条订单」。
+-- 注意：已取消(4) 的订单依然占位——它同样占用了这个唯一键，用户重新下单时不会
+-- 插入新行，而是复用原来那行订单（由应用层 `reactivateOrder` 处理：重置状态与时间）。
+-- 因此「先取消再购买」不会撞唯一键，历史取消记录也不会被自动清理。
+
+-- ---------------------------------------------------------------------
+-- 9. 历史数据回填
 -- ---------------------------------------------------------------------
 -- 已有笔记分配话题，保证话题页有内容
 UPDATE `tb_blog` b

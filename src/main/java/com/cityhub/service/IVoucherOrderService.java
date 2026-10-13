@@ -16,6 +16,9 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
     /** 秒杀下单（Redis + Lua 预校验，异步落库） */
     Result seckillVoucher(Long voucherId);
 
+    /** 普通券下单（同步落库，一人一单） */
+    Result buyVoucher(Long voucherId);
+
     /** 异步落库，由下单线程调用 */
     void createVoucherOrder(VoucherOrder voucherOrder);
 

@@ -31,4 +31,22 @@ public interface VoucherOrderMapper extends BaseMapper<VoucherOrder> {
      * 查询单条订单详情。
      */
     VoucherOrderVO queryOrderDetail(@Param("id") Long id);
+
+    /**
+     * 查询某用户在某张券上「有效」的订单（未支付 / 已支付 / 已核销）。
+     * 已取消的订单不算占用名额，用户取消后可以重新下单。
+     */
+    VoucherOrder findActiveOrder(@Param("userId") Long userId, @Param("voucherId") Long voucherId);
+
+    /**
+     * 查询某用户在某张券上「已取消」的订单，用于取消后重新下单时复用原订单行。
+     */
+    VoucherOrder selectCanceledOrder(@Param("userId") Long userId, @Param("voucherId") Long voucherId);
+
+    /**
+     * 把已取消的订单重新激活成未支付订单（重新下单时复用原订单号）。
+     *
+     * @return 受影响行数，1 表示重新激活成功
+     */
+    int reactivateOrder(@Param("id") Long id);
 }
