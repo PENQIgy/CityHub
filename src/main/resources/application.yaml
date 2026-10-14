@@ -61,7 +61,7 @@ logging:
 # ---------------------------------------------------------------------
 cityhub:
   # 图片上传根目录（nginx 静态资源目录下的 imgs）
-  image-upload-dir: D:\nginx-1.18.0\html\cityhub\imgs\
+  image-upload-dir: /root/imgs/
   # Feed 流每页条数
   feed-page-size: 10
   # 笔记列表每页条数
