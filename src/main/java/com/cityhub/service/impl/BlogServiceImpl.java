@@ -114,9 +114,19 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             // 没有定位信息时退化为「最新笔记」
             return queryLatest(current, props.getFeedPageSize());
         }
-        List<Long> shopIds = nearbyShopIds(x, y, 100);
+        // 半径逐级放大：用户在演示数据（杭州）之外时，10 公里内一个商户都没有，
+        // 直接返回空列表会让「附近」永远是空白页，体验很差。
+        double[] radii = {props.getNearbyRadiusKm(), 50D, 200D};
+        List<Long> shopIds = Collections.emptyList();
+        for (double radius : radii) {
+            shopIds = nearbyShopIds(x, y, radius, 200);
+            if (!shopIds.isEmpty()) {
+                break;
+            }
+        }
         if (shopIds.isEmpty()) {
-            return Result.ok(Collections.emptyList());
+            // 全国范围内都没有带坐标的商户：退化为最新笔记，至少不是白屏
+            return queryLatest(current, props.getFeedPageSize());
         }
         Page<Blog> page = query()
                 .in("shop_id", shopIds)
@@ -664,13 +674,13 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     }
 
     /**
-     * 取定位点附近 10 公里内的商户 id，按距离由近到远。
+     * 取定位点附近 {@code radiusKm} 公里内的商户 id，按距离由近到远。
      */
-    private List<Long> nearbyShopIds(Double x, Double y, int limit) {
+    private List<Long> nearbyShopIds(Double x, Double y, double radiusKm, int limit) {
         try {
             GeoResults<RedisGeoCommands.GeoLocation<String>> results = stringRedisTemplate.opsForGeo()
                     .radius(SHOP_GEO_ALL_KEY,
-                            new Circle(new Point(x, y), new Distance(10, Metrics.KILOMETERS)),
+                            new Circle(new Point(x, y), new Distance(radiusKm, Metrics.KILOMETERS)),
                             RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs()
                                     .includeDistance().sortAscending().limit(limit));
             if (results == null) {

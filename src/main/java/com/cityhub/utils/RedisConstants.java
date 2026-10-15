@@ -46,6 +46,14 @@ public class RedisConstants {
     /** 收件箱保留时间（天） */
     public static final long FEED_TTL_DAYS = 7L;
 
+    /* ------------------------------ 定位 ------------------------------ */
+    /** IP 定位缓存：location:ip:{ip} -> JSON {x,y,city,source} */
+    public static final String LOCATION_IP_KEY = "location:ip:";
+    /** IP 定位结果缓存时间（天） */
+    public static final Long LOCATION_IP_TTL_DAYS = 7L;
+    /** IP 定位失败（拿不到结果）的短缓存时间（小时），避免反复请求外部接口 */
+    public static final Long LOCATION_IP_MISS_TTL_HOURS = 1L;
+
     /* ------------------------------ 用户 ------------------------------ */
     public static final String USER_SIGN_KEY = "sign:";
     /** 关注集合 Set：member = 被关注的 userId（用于共同关注） */

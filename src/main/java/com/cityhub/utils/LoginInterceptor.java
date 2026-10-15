@@ -23,6 +23,8 @@ public class LoginInterceptor implements HandlerInterceptor {
     private static final Set<String> PUBLIC_GET_PREFIXES = Set.of(
             "/shop/",
             "/shop-type/",
+            // IP 定位 / 城市列表：未登录也要能拿定位
+            "/location/",
             "/voucher/list/",
             "/topic/",
             "/blog/feed/",

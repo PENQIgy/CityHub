@@ -43,16 +43,17 @@ public class ShopController {
     }
 
     /**
-     * 新增商铺
+     * 新增商铺（需登录）
+     * <p>
+     * 落库后会同步写入 Redis GEO 索引，保证新商户立刻出现在「附近」里。
      */
     @PostMapping
     public Result saveShop(@RequestBody Shop shop) {
-        shopService.save(shop);
-        return Result.ok(shop.getId());
+        return shopService.createShop(shop);
     }
 
     /**
-     * 更新商铺
+     * 更新商铺（需登录）
      */
     @PutMapping
     public Result updateShop(@RequestBody Shop shop) {
@@ -60,16 +61,34 @@ public class ShopController {
     }
 
     /**
-     * 根据商铺类型分页查询（带经纬度时走 Redis GEO）
+     * 附近商户：带 x/y 时按距离由近到远返回，并给每个商户带上 distance（公里）
+     *
+     * @param radius 只看该半径（公里）内的商户，不传表示不限半径
+     */
+    @GetMapping("/nearby")
+    public Result queryNearbyShops(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "x", required = false) Double x,
+            @RequestParam(value = "y", required = false) Double y,
+            @RequestParam(value = "radius", required = false) Double radius
+    ) {
+        return shopService.queryNearbyShops(current, x, y, radius);
+    }
+
+    /**
+     * 根据商铺类型分页查询（带经纬度时按距离由近到远，并返回 distance）
+     *
+     * @param radius 只看该半径（公里）内的商户，不传表示不限半径
      */
     @GetMapping("/of/type")
     public Result queryShopByType(
             @RequestParam("typeId") Integer typeId,
             @RequestParam(value = "current", defaultValue = "1") Integer current,
             @RequestParam(value = "x", required = false) Double x,
-            @RequestParam(value = "y", required = false) Double y
+            @RequestParam(value = "y", required = false) Double y,
+            @RequestParam(value = "radius", required = false) Double radius
     ) {
-        return shopService.queryShopByType(typeId, current, x, y);
+        return shopService.queryShopByType(typeId, current, x, y, radius);
     }
 
     /**
